@@ -46,7 +46,10 @@ In this repository you find a sample of how to deploy an artifact using the appr
 
 If you're using a project scoped artifact feed, all the permissions are automatically configured.
 
+![](./docs/project_scoped_feed.PNG)
+
 If you're using a organization scoped artifact feed, you'll need to add the the Build Service Account in the permissions list as contributor
+![](./docs/org_scoped_feed.PNG)
 
 ### 2 Step - Deploying the Library
 
@@ -60,14 +63,67 @@ We basically run 4 steps:
 
 You can notice that instead of using a PAT token, were using the service account token through ```System.AccessToken```
 
+```  
+- task: DotNetCoreCLI@2
+  displayName: 'Build Project'
+  inputs:
+    command: 'build'
+    projects: 'library/**/*.csproj'
+    arguments: '-c Release'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Pack Project'
+  inputs:
+    command: 'pack'
+    packagesToPack: 'library/**/*.csproj'
+    configuration: 'Release'
+    versioningScheme: 'byEnvVar'
+    versionEnvVar: 'version'
+    
+- task: DotNetCoreCLI@2
+  displayName: 'Add Nuget Source'
+  inputs:
+    command: 'custom'
+    custom: 'nuget'
+    arguments: 'add source $(nuget_server) -n $(nuget_name) -u $(nuget_name) -p "$(System.AccessToken)" --store-password-in-clear-text'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Push to Nuget Source'
+  inputs:
+    command: 'custom'
+    custom: 'nuget'
+```
+
 ### 3 Step - Adding the Source Feed in your Dockerfile
 The next step is to modify your Dockerfile so it can add the private artifact feed and be able to authenticated, you can find the sample [here](https://github.com/psbds/azdevops-nuget-artifact-sysuser-auth-sample/blob/master/app/Dockerfile).
 
 In this case we receive the parameters ```nuget_name```, ```nuget_server```, ```nuget_user``` and ```nuget_password``` in our ```docker build``` command and add the artifact source in the image.
 
+```
+ARG nuget_name
+ARG nuget_server
+ARG nuget_user
+ARG nuget_password
+RUN dotnet nuget add source $nuget_server -n $nuget_name -u $nuget_user -p "$nuget_password" --store-password-in-clear-text
+```
+
+Obs: ```--store-password-in-clear-text``` is there as password encryption is not available on non-windows hosts
+
+```  Password decryption is not supported on .NET Core for this platform. The following feed uses an encrypted password: '****'. You can use a clear text password as a workaround.```
+
 ### 4 Step - Build our App Docker Image
 
 The next step is to build our docker image in Azure Pipelines, you can find the sample [here](https://github.com/psbds/azdevops-nuget-artifact-sysuser-auth-sample/blob/master/build-app-docker.yaml)
+
+```
+steps:
+- task: Docker@2
+  inputs:
+    command: 'build'
+    Dockerfile: 'app/Dockerfile'
+    buildContext: 'app'
+    arguments: '--build-arg nuget_name=$(nuget_name) --build-arg nuget_server=$(nuget_server) --build-arg nuget_user=$(nuget_user) --build-arg nuget_password=$(System.AccessToken)'
+```
 
 The main change is on the line below, where we need to provide the authentication info for the image to build:
 
