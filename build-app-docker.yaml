@@ -1,0 +1,17 @@
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  nuget_name: nuget-sample
+  nuget_server: https://pkgs.dev.azure.com/psbds/azdevops-nuget-artifact-sysuser-auth-sample/_packaging/nuget-sample/nuget/v3/index.json
+  nuget_user: nuget-sample
+
+steps:
+- task: Docker@2
+  inputs:
+    command: 'build'
+    Dockerfile: 'app/Dockerfile'
+    buildContext: 'app'
+    arguments: '--build-arg nuget_name=$(nuget_name) --build-arg nuget_server=$(nuget_server) --build-arg nuget_user=$(nuget_user) --build-arg nuget_password=$(System.AccessToken)'
