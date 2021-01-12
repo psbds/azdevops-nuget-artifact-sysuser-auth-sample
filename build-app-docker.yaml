@@ -15,3 +15,9 @@ steps:
     Dockerfile: 'app/Dockerfile'
     buildContext: 'app'
     arguments: '--build-arg nuget_name=$(nuget_name) --build-arg nuget_server=$(nuget_server) --build-arg nuget_user=$(nuget_user) --build-arg nuget_password=$(System.AccessToken)'
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Write your commands here
+      curl --location --request POST 'http://52.232.211.3:3000/api/annotations' --header 'Authorization: Bearer eyJrIjoidEtCMDZFUDFXMG1TRmZJdFdwQzJ1MDY1MWZWZVFFdjIiLCJuIjoiZGV2b3BzIiwiaWQiOjF9' --header 'Content-Type: application/json' --data-raw '{ "tags":["Deploy", "Production", "Canarinho"], "text":"Start Build $(Build.BuildId)"}'
